@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import json
 import os
-
+import matplotlib.pyplot as plt
 # Check if model file exists, provide helpful message if not
 if not os.path.exists('model.pth'):
     st.error("⚠️ Model file not found! Please upload model.pth to this Space.")

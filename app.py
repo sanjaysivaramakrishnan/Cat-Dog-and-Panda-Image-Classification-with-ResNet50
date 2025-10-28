@@ -40,6 +40,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Streamlit in Hugging Face Spaces runs in an iframe; disable XSRF/CORS to allow uploads
+st.set_option('server.enableXsrfProtection', False)
+st.set_option('server.enableCORS', False)
+st.set_option('server.maxUploadSize', 50)
+
 # Custom CSS
 st.markdown("""
     <style>

@@ -790,7 +790,7 @@ def main():
     st.markdown(
         """
         <p style='text-align: center; color: gray; font-size: 0.9rem;'>
-        Built by Sanjay using Streamlit and PyTorch | 
+        Built by Sanjay Sivaramakrishnan using Streamlit and PyTorch | 
         ResNet50 Transfer Learning Model
         </p>
         """,

@@ -737,7 +737,7 @@ def metrics_page():
 
 def main():
     """Main application"""
-    
+    st.sidebar.info(f"🧾 Streamlit version: {st.__version__}")
     # Sidebar
     st.sidebar.title("🐾 Navigation")
     st.sidebar.markdown("---")

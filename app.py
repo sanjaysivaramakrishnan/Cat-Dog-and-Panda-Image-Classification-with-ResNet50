@@ -44,8 +44,6 @@ st.set_page_config(
 st.markdown("""
     <style>
     .main { padding: 2rem; }
-    /* Reserve consistent space to avoid layout shift (shaking) */
-    .fixed-box { min-height: 420px; }
     .stButton>button {
         width: 100%;
         background-color: #4CAF50;
@@ -430,13 +428,11 @@ def prediction_page():
                 accept_multiple_files=False,
                 key="image_uploader")
         
-        # Reserve space to avoid layout shift when image appears
-        st.markdown("<div class='fixed-box'>", unsafe_allow_html=True)
         if uploaded_file is not None:
             try:
                 image_bytes = uploaded_file.read()
                 image = Image.open(io.BytesIO(image_bytes))
-                st.image(image, caption='Uploaded Image', use_container_width=True)
+                st.image(image, caption='Uploaded Image')
                 
                 # Image info
                 st.caption(f"Image size: {image.size[0]}x{image.size[1]} pixels")
@@ -460,20 +456,14 @@ def prediction_page():
                                 'probabilities': probabilities,
                                 'class_idx': pred_idx
                             }
-                            # Avoid success banners that cause layout reflow
+                            st.success("✅ Classification complete!")
                         except Exception as e:
                             st.error(f"Prediction error: {str(e)}")
             except Exception as e:
                 st.error(f"Error processing image: {str(e)}")
-        else:
-            st.caption("Upload an image and click Classify")
-        st.markdown("</div>", unsafe_allow_html=True)
     
     with col2:
         st.subheader("📊 Prediction Results")
-        # Fix results panel height to avoid reflow on first render
-        st.markdown("<div class='fixed-box'>", unsafe_allow_html=True)
-        
         if 'prediction' in st.session_state:
             pred = st.session_state.prediction
             
@@ -502,7 +492,6 @@ def prediction_page():
                     st.write(f"{emoji} **{name}**: {prob:.4f}%")
         else:
             st.info("👆 Upload an image and click 'Classify Image' to see predictions")
-        st.markdown("</div>", unsafe_allow_html=True)
     
     # Model information
     st.markdown("---")

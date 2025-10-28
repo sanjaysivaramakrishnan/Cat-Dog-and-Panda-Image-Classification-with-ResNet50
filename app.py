@@ -433,7 +433,6 @@ def prediction_page():
                 image_bytes = uploaded_file.read()
                 image = Image.open(io.BytesIO(image_bytes))
                 st.image(image, caption='Uploaded Image')
-                
                 # Image info
                 st.caption(f"Image size: {image.size[0]}x{image.size[1]} pixels")
                 

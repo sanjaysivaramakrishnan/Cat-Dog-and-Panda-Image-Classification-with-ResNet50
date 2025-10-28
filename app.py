@@ -17,22 +17,17 @@ MODEL_URL = "https://huggingface.co/SanjaySivaramakrishnan/animal-classification
 
 # 📥 Auto-download model if not present
 def download_model():
-    if not os.path.exists('model.pth'):
-        try:
-            st.info("📥 Downloading model weights from Hugging Face...")
-            response = requests.get(MODEL_URL, timeout=60)
-            if response.status_code == 200:
-                with open('model.pth', 'wb') as f:
-                    f.write(response.content)
-                st.success("✅ Model downloaded successfully!")
-                return True
-            else:
-                st.error(f"Failed to download model (status code {response.status_code})")
-                return False
-        except Exception as e:
-            st.error(f"Error downloading model: {str(e)}")
-            return False
-    return True
+    if os.path.exists('model.pth'):
+        return True
+    try:
+        response = requests.get(MODEL_URL, timeout=60)
+        if response.status_code == 200:
+            with open('model.pth', 'wb') as f:
+                f.write(response.content)
+            return True
+        return False
+    except Exception:
+        return False
 
 # 🔧 Download model before loading
 download_model()
@@ -116,7 +111,7 @@ def load_model():
 
     try:
         # Load checkpoint
-        checkpoint = torch.load('model.pth', map_location=device, weights_only=False)
+        checkpoint = torch.load('model.pth', map_location=device)
         
         # Determine state dict
         if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
@@ -195,7 +190,7 @@ def load_model():
         
         # Try to provide more helpful debug info
         try:
-            checkpoint = torch.load('model.pth', map_location=device, weights_only=False)
+            checkpoint = torch.load('model.pth', map_location=device)
             state_dict = checkpoint if not isinstance(checkpoint, dict) else checkpoint.get('model_state_dict', checkpoint)
             fc_keys = [k for k in state_dict.keys() if 'fc' in k]
             st.error(f"🔍 Debug info - FC layers found: {fc_keys[:5]}")

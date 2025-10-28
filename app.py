@@ -8,11 +8,28 @@ import plotly.graph_objects as go
 import pandas as pd
 import json
 import os
+import requests
 
-# Check if model file exists, provide helpful message if not
-if not os.path.exists('model.pth'):
-    st.error("⚠️ Model file not found! Please upload model.pth to this Space.")
-    st.stop()
+# 🔗 Your Hugging Face model file URL
+MODEL_URL = "https://huggingface.co/SanjaySivaramakrishnan/animal-classification-model/resolve/main/model.pth"
+
+# 📥 Auto-download model if not present
+def download_model():
+    if not os.path.exists('model.pth'):
+        try:
+            st.info("📥 Downloading model weights from Hugging Face...")
+            response = requests.get(MODEL_URL)
+            if response.status_code == 200:
+                with open('model.pth', 'wb') as f:
+                    f.write(response.content)
+                st.success("✅ Model downloaded successfully!")
+            else:
+                st.error(f"Failed to download model (status code {response.status_code})")
+        except Exception as e:
+            st.error(f"Error downloading model: {str(e)}")
+
+# 🔧 Download model before loading
+download_model()
 
 # Page configuration
 st.set_page_config(
@@ -25,9 +42,7 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
     <style>
-    .main {
-        padding: 2rem;
-    }
+    .main { padding: 2rem; }
     .stButton>button {
         width: 100%;
         background-color: #4CAF50;
@@ -66,26 +81,24 @@ st.markdown("""
 def load_model():
     """Load the trained ResNet50 model with proper error handling"""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
+
     if not os.path.exists('model.pth'):
+        st.error("⚠️ Model file not found even after download attempt.")
         return None, device
-    
-    # Initialize model architecture (must match training exactly)
+
     model = models.resnet50(weights=None)
-    
     num_features = model.fc.in_features
     model.fc = nn.Sequential(
         nn.Linear(num_features, 512),
         nn.ReLU(inplace=True),
-        nn.Dropout(0.7),  # ✅ Fixed: matches training dropout
+        nn.Dropout(0.7),
         nn.Linear(512, 128),
         nn.ReLU(inplace=True),
         nn.Dropout(0.3),
         nn.Linear(128, 3)
     )
-    
+
     try:
-        # Load trained weights
         model.load_state_dict(torch.load('model.pth', map_location=device))
         model = model.to(device)
         model.eval()
@@ -96,10 +109,8 @@ def load_model():
 
 @st.cache_data
 def load_metrics():
-    """Load metrics from JSON file"""
     if not os.path.exists('metrics.json'):
         return None
-    
     try:
         with open('metrics.json', 'r') as f:
             return json.load(f)
@@ -108,7 +119,6 @@ def load_metrics():
         return None
 
 def get_transforms():
-    """Define image transformations (must match training)"""
     return transforms.Compose([
         transforms.Lambda(lambda img: img.convert('RGB')),
         transforms.Resize((224, 224)),
@@ -117,18 +127,12 @@ def get_transforms():
     ])
 
 def predict_image(image, model, device):
-    """Make prediction on uploaded image"""
     transform = get_transforms()
-    
-    # Transform image
     img_tensor = transform(image).unsqueeze(0).to(device)
-    
-    # Make prediction
     with torch.no_grad():
         outputs = model(img_tensor)
         probabilities = torch.nn.functional.softmax(outputs, dim=1)
         confidence, predicted = torch.max(probabilities, 1)
-    
     return predicted.item(), confidence.item(), probabilities[0].cpu().numpy()
 
 def create_confidence_gauge(confidence, class_name):

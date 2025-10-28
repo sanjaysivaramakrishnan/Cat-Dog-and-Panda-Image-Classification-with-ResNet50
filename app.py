@@ -5,6 +5,7 @@ from torchvision import models, transforms
 from PIL import Image
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import pandas as pd
 import json
 import os
@@ -18,15 +19,19 @@ def download_model():
     if not os.path.exists('model.pth'):
         try:
             st.info("📥 Downloading model weights from Hugging Face...")
-            response = requests.get(MODEL_URL)
+            response = requests.get(MODEL_URL, timeout=60)
             if response.status_code == 200:
                 with open('model.pth', 'wb') as f:
                     f.write(response.content)
                 st.success("✅ Model downloaded successfully!")
+                return True
             else:
                 st.error(f"Failed to download model (status code {response.status_code})")
+                return False
         except Exception as e:
             st.error(f"Error downloading model: {str(e)}")
+            return False
+    return True
 
 # 🔧 Download model before loading
 download_model()
@@ -77,6 +82,28 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# Global class configuration - loaded from metrics if available
+def get_class_config():
+    """Get class names from metrics.json if available, otherwise use defaults"""
+    default_config = {
+        'names': ['Cat', 'Dog', 'Panda'],
+        'emojis': ['🐱', '🐕', '🐼']
+    }
+    
+    if os.path.exists('metrics.json'):
+        try:
+            with open('metrics.json', 'r') as f:
+                metrics = json.load(f)
+                if 'class' in metrics and len(metrics['class']) > 0:
+                    return {
+                        'names': metrics['class'],
+                        'emojis': default_config['emojis'][:len(metrics['class'])]
+                    }
+        except Exception:
+            pass
+    
+    return default_config
+
 @st.cache_resource
 def load_model():
     """Load the trained ResNet50 model with proper error handling"""
@@ -84,28 +111,97 @@ def load_model():
 
     if not os.path.exists('model.pth'):
         st.error("⚠️ Model file not found even after download attempt.")
-        return None, device
-
-    model = models.resnet50(weights=None)
-    num_features = model.fc.in_features
-    model.fc = nn.Sequential(
-        nn.Linear(num_features, 512),
-        nn.ReLU(inplace=True),
-        nn.Dropout(0.7),
-        nn.Linear(512, 128),
-        nn.ReLU(inplace=True),
-        nn.Dropout(0.3),
-        nn.Linear(128, 3)
-    )
+        return None, device, None
 
     try:
-        model.load_state_dict(torch.load('model.pth', map_location=device))
+        # Load checkpoint
+        checkpoint = torch.load('model.pth', map_location=device, weights_only=False)
+        
+        # Determine state dict
+        if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+            state_dict = checkpoint['model_state_dict']
+        else:
+            state_dict = checkpoint
+        
+        # Detect number of classes from the final layer
+        num_classes = None
+        final_layer_key = None
+        
+        # Look for the final fc layer - it could be fc.6, fc.4, fc.2, or just fc
+        for key in state_dict.keys():
+            if key.endswith('.weight') and 'fc' in key:
+                # This could be the final layer
+                potential_num_classes = state_dict[key].shape[0]
+                # Check if this looks like a classification layer (usually < 1000 classes)
+                if potential_num_classes < 1000:
+                    num_classes = potential_num_classes
+                    final_layer_key = key
+        
+        if num_classes is None:
+            num_classes = 3  # Default fallback
+        
+        # Build model architecture matching the saved weights
+        model = models.resnet50(weights=None)
+        num_features = model.fc.in_features
+        
+        # Determine architecture from state_dict keys
+        fc_keys = [k for k in state_dict.keys() if 'fc.' in k]
+        
+        if any('fc.0.' in k for k in fc_keys) and any('fc.3.' in k for k in fc_keys) and any('fc.6.' in k for k in fc_keys):
+            # Architecture: 3-layer sequential (2048->512->128->num_classes)
+            model.fc = nn.Sequential(
+                nn.Linear(num_features, 512),
+                nn.ReLU(inplace=True),
+                nn.Dropout(0.7),
+                nn.Linear(512, 128),
+                nn.ReLU(inplace=True),
+                nn.Dropout(0.3),
+                nn.Linear(128, num_classes)
+            )
+        elif any('fc.0.' in k for k in fc_keys) and any('fc.2.' in k for k in fc_keys):
+            # Architecture: 2-layer sequential
+            # Need to detect intermediate size
+            if 'fc.2.weight' in state_dict:
+                intermediate_size = state_dict['fc.2.weight'].shape[1]
+            elif 'fc.0.weight' in state_dict:
+                intermediate_size = state_dict['fc.0.weight'].shape[0]
+            else:
+                intermediate_size = 512
+            
+            model.fc = nn.Sequential(
+                nn.Linear(num_features, intermediate_size),
+                nn.ReLU(inplace=True),
+                nn.Linear(intermediate_size, num_classes)
+            )
+        else:
+            # Simple single-layer architecture
+            model.fc = nn.Linear(num_features, num_classes)
+        
+        # Load weights
+        if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            model.load_state_dict(checkpoint)
+            
         model = model.to(device)
         model.eval()
-        return model, device
+        
+        st.success(f"✅ Model loaded successfully with {num_classes} classes")
+        return model, device, num_classes
+        
     except Exception as e:
         st.error(f"❌ Error loading model: {str(e)}")
-        return None, device
+        
+        # Try to provide more helpful debug info
+        try:
+            checkpoint = torch.load('model.pth', map_location=device, weights_only=False)
+            state_dict = checkpoint if not isinstance(checkpoint, dict) else checkpoint.get('model_state_dict', checkpoint)
+            fc_keys = [k for k in state_dict.keys() if 'fc' in k]
+            st.error(f"🔍 Debug info - FC layers found: {fc_keys[:5]}")
+        except:
+            pass
+            
+        return None, device, None
 
 @st.cache_data
 def load_metrics():
@@ -127,13 +223,19 @@ def get_transforms():
     ])
 
 def predict_image(image, model, device):
-    transform = get_transforms()
-    img_tensor = transform(image).unsqueeze(0).to(device)
-    with torch.no_grad():
-        outputs = model(img_tensor)
-        probabilities = torch.nn.functional.softmax(outputs, dim=1)
-        confidence, predicted = torch.max(probabilities, 1)
-    return predicted.item(), confidence.item(), probabilities[0].cpu().numpy()
+    """Predict image class with error handling"""
+    try:
+        transform = get_transforms()
+        img_tensor = transform(image).unsqueeze(0).to(device)
+        
+        with torch.no_grad():
+            outputs = model(img_tensor)
+            probabilities = torch.nn.functional.softmax(outputs, dim=1)
+            confidence, predicted = torch.max(probabilities, 1)
+        
+        return predicted.item(), confidence.item(), probabilities[0].cpu().numpy()
+    except Exception as e:
+        raise Exception(f"Prediction failed: {str(e)}")
 
 def create_confidence_gauge(confidence, class_name):
     """Create a gauge chart for confidence"""
@@ -184,22 +286,21 @@ def create_probability_chart(probabilities, class_names):
     return fig
 
 def create_confusion_matrix_plot(cm, class_names):
-    """Create interactive confusion matrix"""
+    """Create interactive confusion matrix - FIXED VERSION"""
     # Calculate percentages
     cm_percent = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis] * 100
     
-    # Create annotations with both count and percentage
-    annotations = []
-    for i in range(len(class_names)):
-        for j in range(len(class_names)):
-            annotations.append(f"{cm[i, j]}<br>({cm_percent[i, j]:.1f}%)")
+    # Create 2D annotations array (FIXED)
+    annotations = [[f"{cm[i, j]}<br>({cm_percent[i, j]:.1f}%)" 
+                    for j in range(len(class_names))] 
+                   for i in range(len(class_names))]
     
     fig = go.Figure(data=go.Heatmap(
         z=cm,
         x=class_names,
         y=class_names,
         colorscale='Blues',
-        text=np.array(annotations).reshape(cm.shape),
+        text=annotations,
         texttemplate='%{text}',
         textfont={"size": 14},
         showscale=True,
@@ -248,9 +349,6 @@ def create_metrics_bar_chart(metrics_df):
 def create_training_plots(history_data):
     """Create combined training history plots"""
     epochs = list(range(1, len(history_data['train_loss']) + 1))
-    
-    # Create subplots
-    from plotly.subplots import make_subplots
     
     fig = make_subplots(
         rows=1, cols=2,
@@ -301,10 +399,10 @@ def prediction_page():
     st.markdown("---")
     
     # Load model
-    model, device = load_model()
+    model, device, num_classes = load_model()
     
     if model is None:
-        st.error("⚠️ Model file 'model.pth' not found!")
+        st.error("⚠️ Model file 'model.pth' not found or failed to load!")
         st.info("""
         💡 **Setup Instructions:**
         1. Train your model using the training script
@@ -313,9 +411,14 @@ def prediction_page():
         """)
         return
     
-    # Class configuration
-    class_names = ['Cat', 'Dog', 'Panda']
-    class_emojis = ['🐱', '🐕', '🐼']
+    # Get class configuration
+    class_config = get_class_config()
+    class_names = class_config['names']
+    class_emojis = class_config['emojis']
+    
+    # Validate model matches classes
+    if num_classes and num_classes != len(class_names):
+        st.warning(f"⚠️ Model expects {num_classes} classes but config has {len(class_names)} classes")
     
     # Main layout
     col1, col2 = st.columns([1, 1])
@@ -339,17 +442,25 @@ def prediction_page():
                 # Predict button
                 if st.button("🔍 Classify Image", use_container_width=True):
                     with st.spinner('🔄 Analyzing image...'):
-                        pred_idx, confidence, probabilities = predict_image(image, model, device)
-                        
-                        # Store in session state
-                        st.session_state.prediction = {
-                            'class': class_names[pred_idx],
-                            'emoji': class_emojis[pred_idx],
-                            'confidence': confidence,
-                            'probabilities': probabilities,
-                            'class_idx': pred_idx
-                        }
-                        st.success("✅ Classification complete!")
+                        try:
+                            pred_idx, confidence, probabilities = predict_image(image, model, device)
+                            
+                            # Validate prediction index
+                            if pred_idx >= len(class_names):
+                                st.error(f"Model predicted class {pred_idx} but only {len(class_names)} classes defined")
+                                return
+                            
+                            # Store in session state
+                            st.session_state.prediction = {
+                                'class': class_names[pred_idx],
+                                'emoji': class_emojis[pred_idx],
+                                'confidence': confidence,
+                                'probabilities': probabilities,
+                                'class_idx': pred_idx
+                            }
+                            st.success("✅ Classification complete!")
+                        except Exception as e:
+                            st.error(f"Prediction error: {str(e)}")
             except Exception as e:
                 st.error(f"Error processing image: {str(e)}")
     
@@ -395,7 +506,7 @@ def prediction_page():
         st.markdown("**🏗️ Architecture**")
         st.write("• ResNet50 (Transfer Learning)")
         st.write("• Fine-tuned Layer4 + FC")
-        st.write("• 3-class classifier")
+        st.write(f"• {len(class_names)}-class classifier")
     
     with col2:
         st.markdown("**📊 Classes**")
@@ -544,7 +655,7 @@ def metrics_page():
             st.markdown("---")
             st.markdown("#### Per-Class Accuracy")
             for i, class_name in enumerate(class_names):
-                class_acc = cm[i, i] / cm[i].sum() * 100
+                class_acc = cm[i, i] / cm[i].sum() * 100 if cm[i].sum() > 0 else 0
                 st.write(f"**{class_name}:** {class_acc:.2f}%")
     
     with tab3:
@@ -552,7 +663,7 @@ def metrics_page():
         
         history_data = metrics_data.get('history', {})
         
-        if history_data:
+        if history_data and 'train_loss' in history_data:
             # Combined plot
             st.plotly_chart(
                 create_training_plots(history_data),
@@ -765,9 +876,14 @@ def main():
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("### 🔧 Model Specifications")
-    st.sidebar.markdown("""
+    
+    # Get class info
+    class_config = get_class_config()
+    class_list = ", ".join(class_config['names'])
+    
+    st.sidebar.markdown(f"""
     - **Architecture:** ResNet50
-    - **Classes:** Cat, Dog, Panda
+    - **Classes:** {class_list}
     - **Framework:** PyTorch
     - **Input Size:** 224×224
     - **Preprocessing:** ImageNet normalization
@@ -783,6 +899,9 @@ def main():
     st.sidebar.write(f"{'✅' if model_exists else '❌'} model.pth")
     st.sidebar.write(f"{'✅' if metrics_exists else '❌'} metrics.json")
     
+    if not model_exists:
+        st.sidebar.warning("⚠️ Model file missing! Download will be attempted.")
+    
     # Route to page
     if page == "🔮 Prediction":
         prediction_page()
@@ -794,7 +913,7 @@ def main():
     st.markdown(
         """
         <p style='text-align: center; color: gray; font-size: 0.9rem;'>
-        Built by Sanjay using Streamlit and PyTorch | 
+        Built with Streamlit and PyTorch | 
         ResNet50 Transfer Learning Model
         </p>
         """,

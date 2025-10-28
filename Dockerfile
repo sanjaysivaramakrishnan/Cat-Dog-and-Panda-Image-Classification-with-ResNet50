@@ -32,11 +32,4 @@ EXPOSE 7860
 HEALTHCHECK CMD curl --fail http://localhost:7860/_stcore/health
 
 # Run the Streamlit application with secure options for Spaces iframe
-CMD [
-  "streamlit", "run", "app.py",
-  "--server.port=7860",
-  "--server.address=0.0.0.0",
-  "--server.enableXsrfProtection=false",
-  "--server.enableCORS=false",
-  "--server.maxUploadSize=50"
-]
+CMD ["streamlit","run","app.py","--server.port=7860","--server.address=0.0.0.0","--server.enableXsrfProtection=false","--server.enableCORS=false","--server.maxUploadSize=50"]

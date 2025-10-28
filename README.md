@@ -18,19 +18,22 @@ A state-of-the-art deep learning application that classifies images as **Cat**, 
 - Upload images in JPG, JPEG, PNG, or WebP formats
 - Real-time classification with confidence scores
 - Interactive probability visualization with Plotly charts
-- Support for batch processing
+- Auto-download model from Hugging Face if not present
+- Support for multiple image formats and sizes
 
 ### 📊 **Comprehensive Analytics**
 - **Performance Metrics**: Detailed per-class precision, recall, F1-scores
-- **Confusion Matrix**: Interactive heatmap visualization
+- **Confusion Matrix**: Interactive heatmap visualization with percentages
 - **Training History**: Loss and accuracy plots over epochs
 - **Model Details**: Architecture insights and specifications
+- **Export Options**: Download metrics as CSV or JSON
 
 ### 🎨 **Beautiful Interface**
 - Modern, responsive UI with custom CSS styling
-- Mobile-friendly design
-- Dark/light theme compatibility
+- Mobile-friendly design with gradient cards
+- Interactive gauge charts for confidence visualization
 - Intuitive navigation with sidebar controls
+- Real-time model status indicators
 
 ## 🏗️ Model Architecture
 
@@ -43,30 +46,30 @@ This project uses **transfer learning** with a pre-trained ResNet50 model:
   - Linear(512 → 128) + ReLU + Dropout(0.3) 
   - Linear(128 → 3) [Output layer]
 - **Classes**: Cat 🐱, Dog 🐕, Panda 🐼
+- **Auto-Download**: Model automatically downloads from Hugging Face
+- **Device Support**: CPU/GPU auto-detection
 
 ## 📊 Performance Metrics
 
 - **Test Accuracy**: **99.33%**
-- **Cat Classification**: 99.00% F1-Score
-- **Dog Classification**: 98.99% F1-Score  
-- **Panda Classification**: 100.00% (Perfect!)
+- **Cat Classification**: 99.00% F1-Score (Precision: 98.51%, Recall: 99.50%)
+- **Dog Classification**: 98.99% F1-Score (Precision: 99.49%, Recall: 98.50%)  
+- **Panda Classification**: 100.00% F1-Score (Perfect classification!)
+- **Macro Average**: 99.33% F1-Score
+- **Weighted Average**: 99.33% F1-Score
 
 ## 📁 Project Structure
 
 ```
-unit-2/
+Animal-classification-deploy/
 ├── 🐳 Dockerfile                           # Docker configuration for deployment
-├── 📱 app.py                              # Main Streamlit application (801 lines)
+├── 📱 app.py                              # Main Streamlit application (920 lines)
 ├── 📓 cat-dog-pandas-classification.ipynb # Complete training notebook
-├── 🧠 model.pth                           # Trained ResNet50 weights (94MB)
+├── 🧠 model.pth                           # Trained ResNet50 weights (auto-downloaded)
 ├── 📈 metrics.json                        # Comprehensive performance data
 ├── 📋 requirements.txt                    # Optimized dependencies (CPU PyTorch)
 ├── 🖼️ confusion_matrix.png               # Confusion matrix visualization
-├── 🔧 datasplit.py                       # Dataset preparation utilities
-└── 📁 Cat-Dog_Pandas-dataset/            # Complete dataset (2,700 images)
-    ├── Train/ (2,100 images: 700 each class)
-    ├── Valid/ (300 images: 100 each class) 
-    └── Test/ (300 images: 100 each class)
+└── 🔧 datasplit.py                       # Dataset preparation utilities
 ```
 
 ## 🚀 Quick Start
@@ -76,7 +79,7 @@ unit-2/
 1. **Clone & Navigate:**
    ```bash
    git clone <your-repo>
-   cd unit-2
+   cd Animal-classification-deploy
    ```
 
 2. **Install Dependencies:**
@@ -125,7 +128,7 @@ git clone https://huggingface.co/spaces/yourusername/animal-classifier
 cd animal-classifier
 
 # Copy project files
-cp unit-2/* .
+cp Animal-classification-deploy/* .
 
 # For large model files (>10MB), use Git LFS
 git lfs install
@@ -154,13 +157,14 @@ The project includes optimal configuration:
 
 ### **Dependencies (Optimized for Docker)**
 ```txt
-streamlit==1.31.0          # Web framework
-torch==2.1.0+cpu          # PyTorch (CPU-optimized)
-torchvision==0.16.0+cpu   # Computer vision utilities
-numpy==1.24.3             # Numerical computing
-pandas==2.1.3             # Data manipulation
-pillow==10.1.0             # Image processing
-plotly==5.18.0             # Interactive visualizations
+streamlit>=1.34.0          # Web framework
+torch==2.0.0+cpu           # PyTorch (CPU-optimized)
+torchvision==0.15.1+cpu    # Computer vision utilities
+numpy==1.24.3              # Numerical computing
+pandas==2.0.3              # Data manipulation
+pillow==10.0.0             # Image processing
+plotly==5.15.0             # Interactive visualizations
+matplotlib==3.9.2         # Additional plotting support
 ```
 
 ### **Training Configuration**
@@ -207,12 +211,11 @@ model.eval()
 ## 📈 Dataset Information
 
 **Cat-Dog-Pandas Dataset** (Custom curated):
-- **Total Images**: 2,700 high-quality images
-- **Training Set**: 2,100 images (70%)
-- **Validation Set**: 300 images (15%)
-- **Test Set**: 300 images (15%)
-- **Classes**: Balanced distribution (900 images per class)
+- **Test Set**: 600 images (200 per class)
+- **Classes**: Balanced distribution (Cat, Dog, Panda)
 - **Resolution**: Variable (resized to 224×224 during training)
+- **Data Split**: Train/Validation/Test (exact ratios from training notebook)
+- **Quality**: High-quality, curated images for optimal performance
 
 ## 🔧 Development & Customization
 
@@ -220,7 +223,7 @@ model.eval()
 ```bash
 # Clone repository
 git clone <your-repo-url>
-cd unit-2
+cd Animal-classification-deploy
 
 # Create virtual environment
 python -m venv venv
@@ -240,8 +243,8 @@ jupyter notebook cat-dog-pandas-classification.ipynb
 ```
 
 ### **Adding New Classes**
-1. Update dataset structure in `Cat-Dog_Pandas-dataset/`
-2. Modify `class_names` in `app.py`
+1. Update dataset structure in your dataset folder
+2. Modify `class_names` in `app.py` and `metrics.json`
 3. Retrain model with updated data
 4. Update `model.pth` with new weights
 
@@ -270,12 +273,14 @@ docker run -d -p 7860:7860 --name classifier animal-classifier
 
 - 🎯 **State-of-the-art Accuracy**: 99.33% test accuracy
 - 🏗️ **Production Ready**: Docker containerized, optimized for deployment
-- 🎨 **Beautiful UI**: Modern Streamlit interface with custom styling
-- 📊 **Comprehensive Analytics**: Full performance metrics and visualizations
+- 🎨 **Beautiful UI**: Modern Streamlit interface with custom styling and interactive charts
+- 📊 **Comprehensive Analytics**: Full performance metrics, confusion matrix, and training history
 - 🔬 **Reproducible**: Complete training pipeline in Jupyter notebook
 - ⚡ **Fast Inference**: CPU-optimized for real-time predictions
 - 📱 **Mobile Friendly**: Responsive design for all devices
 - 🔒 **Secure**: Docker best practices with non-root user
+- 🤗 **Auto-Download**: Model automatically downloads from Hugging Face
+- 📈 **Interactive Visualizations**: Plotly charts for probabilities and metrics
 
 ## 🤝 Contributing
 

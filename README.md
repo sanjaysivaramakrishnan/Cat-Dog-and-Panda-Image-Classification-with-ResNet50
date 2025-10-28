@@ -5,6 +5,7 @@ colorFrom: blue
 colorTo: purple
 sdk: docker
 app_port: 7860
+python_version: 3.9
 ---
 
 # 🐾 Animal Classifier
@@ -62,7 +63,6 @@ unit-2/
 ├── 📋 requirements.txt                    # Optimized dependencies (CPU PyTorch)
 ├── 🖼️ confusion_matrix.png               # Confusion matrix visualization
 ├── 🔧 datasplit.py                       # Dataset preparation utilities
-├── ⏱️ runtime.txt                        # Python runtime specification
 └── 📁 Cat-Dog_Pandas-dataset/            # Complete dataset (2,700 images)
     ├── Train/ (2,100 images: 700 each class)
     ├── Valid/ (300 images: 100 each class) 

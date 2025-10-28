@@ -18,7 +18,7 @@ if not os.path.exists('model.pth'):
 st.set_page_config(
     page_title="Animal Classifier",
     page_icon="🐾",
-    layout="wide",
+    layout="centered",
     initial_sidebar_state="expanded"
 )
 

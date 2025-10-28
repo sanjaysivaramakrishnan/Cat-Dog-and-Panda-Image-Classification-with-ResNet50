@@ -22,14 +22,9 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create a non-root user for security
-RUN useradd -m -u 1000 user
+RUN useradd -m -u 1000 user && \
+    chown -R user:user /app
 USER user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
-
-# Copy app to user directory
-WORKDIR $HOME/app
-COPY --chown=user . $HOME/app
 
 # Expose port 7860 (Hugging Face Spaces standard)
 EXPOSE 7860
@@ -38,4 +33,4 @@ EXPOSE 7860
 HEALTHCHECK CMD curl --fail http://localhost:7860/_stcore/health
 
 # Run the Streamlit application
-ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=7860", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "app.py", "--server.port=7860", "--server.address=0.0.0.0"]

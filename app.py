@@ -909,8 +909,7 @@ def main():
     st.markdown(
         """
         <p style='text-align: center; color: gray; font-size: 0.9rem;'>
-        Built with Streamlit and PyTorch | 
-        ResNet50 Transfer Learning Model
+        Built with Streamlit and PyTorch By Sanjay Sivaramakrishnan
         </p>
         """,
         unsafe_allow_html=True

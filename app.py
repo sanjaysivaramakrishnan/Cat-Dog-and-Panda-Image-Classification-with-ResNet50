@@ -9,6 +9,7 @@ from plotly.subplots import make_subplots
 import pandas as pd
 import json
 import os
+import io
 import requests
 
 # 🔗 Your Hugging Face model file URL
@@ -426,14 +427,16 @@ def prediction_page():
     with col1:
         st.subheader("📤 Upload Image")
         uploaded_file = st.file_uploader(
-            "Choose an image...",
-            type=['jpg', 'jpeg', 'png', 'webp'],
-            help="Upload a clear image of a cat, dog, or panda"
-        )
+                "Choose an image...",
+                type=['jpg', 'jpeg', 'png', 'webp'],
+                help="Upload a clear image of a cat, dog, or panda",
+                accept_multiple_files=False,
+                key="image_uploader")
         
         if uploaded_file is not None:
             try:
-                image = Image.open(uploaded_file)
+                image_bytes = uploaded_file.read()
+                image = Image.open(io.BytesIO(image_bytes))
                 st.image(image, caption='Uploaded Image', use_container_width=True)
                 
                 # Image info

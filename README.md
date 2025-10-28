@@ -289,13 +289,6 @@ docker run -d -p 7860:7860 --name classifier animal-classifier
 
 This project is open source and available under the Apache 2.0 License.
 
-## 🙏 Acknowledgments
-
-- **ResNet Architecture**: He et al. (2016)
-- **Transfer Learning**: ImageNet pre-trained weights
-- **Streamlit**: Interactive web framework
-- **PyTorch**: Deep learning framework
-- **Plotly**: Interactive visualizations
 
 ---
 

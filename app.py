@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 import pandas as pd
 import json
 import os
-import matplotlib.pyplot as plt
+
 # Check if model file exists, provide helpful message if not
 if not os.path.exists('model.pth'):
     st.error("⚠️ Model file not found! Please upload model.pth to this Space.")
@@ -737,7 +737,7 @@ def metrics_page():
 
 def main():
     """Main application"""
-    st.sidebar.info(f"🧾 Streamlit version: {st.__version__}")
+    
     # Sidebar
     st.sidebar.title("🐾 Navigation")
     st.sidebar.markdown("---")
@@ -790,7 +790,7 @@ def main():
     st.markdown(
         """
         <p style='text-align: center; color: gray; font-size: 0.9rem;'>
-        Built by Sanjay Sivaramakrishnan using Streamlit and PyTorch | 
+        Built by Sanjay using Streamlit and PyTorch | 
         ResNet50 Transfer Learning Model
         </p>
         """,
